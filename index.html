@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مدير المدرسة الذكي | مع مساعد AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-card: rgba(255,255,255,0.15);
+            --text-primary: #fff;
+            --text-secondary: rgba(255,255,255,0.85);
+            --border-color: rgba(255,255,255,0.3);
+            --gold: #FFD700;
+            --sidebar-bg: rgba(0,0,0,0.92);
+            --sidebar-width: 280px;
+            --chat-user: #007bff;
+            --chat-ai: #28a745;
+        }
+
+        body.dark-mode {
+            --bg-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0c29 100%);
+            --bg-card: rgba(0,0,0,0.5);
+            --text-primary: #eee;
+            --text-secondary: #aaa;
+            --sidebar-bg: rgba(0,0,0,0.95);
+        }
+
+        body.high-contrast {
+            --bg-primary: #000000;
+            --bg-card: #1a1a1a;
+            --text-primary: #ffff00;
+            --text-secondary: #ffffff;
+            --border-color: #ffff00;
+            --gold: #ffff00;
+            --chat-user: #0000ff;
+            --chat-ai: #008000;
+        }
+        body.high-contrast .card { border: 2px solid #ffff00; }
+        body.high-contrast .btn { border: 2px solid #ffffff; }
+
+        body.no-animation * {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            transition: all 0.3s;
+        }
+
+        /* شاشة تسجيل الدخول */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s;
+        }
+        .login-overlay.hide {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .login-card {
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            padding: 40px;
+            width: 350px;
+            text-align: center;
+            border: 2px solid #FFD700;
+        }
+        .login-card h2 {
+            color: #FFD700;
+            margin-bottom: 20px;
+        }
+        .login-card p {
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+        .google-btn {
+            background: #fff;
+            color: #333;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            font-size: 1rem;
+        }
+        .google-btn img {
+            width: 20px;
+            height: 20px;
+        }
+        .google-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.02);
+        }
+        .error-msg {
+            color: #ff6b6b;
+            margin-top: 10px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 30px;
+            margin-bottom: 15px;
+        }
+        .user-info img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        .logout-btn {
+            background: rgba(255,0,0,0.5);
+            border: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* زر الهمبرغر */
+        .hamburger {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,215,0,0.9);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            z-index: 1001;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .hamburger:hover {
+            transform: scale(1.05);
+            background: #FFD700;
+        }
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: #1a1a2e;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 6px);
+        }
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(8px, -6px);
+        }
+
+        /* القائمة الجانبية */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            padding: 80px 20px 30px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255,215,0,0.2);
+        }
+        .sidebar.open {
+            right: 0;
+        }
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 15px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .sidebar-item i {
+            width: 25px;
+            font-size: 1.2rem;
+            color: #FFD700;
+        }
+        .sidebar-item:hover {
+            background: rgba(255,215,0,0.2);
+            transform: translateX(-5px);
+        }
+        .sidebar-item.active {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1a1a2e;
+        }
+        .sidebar-item.active i {
+            color: #1a1a2e;
+        }
+        .sidebar-footer {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            left: 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,215,0,0.3);
+        }
+
+        /* المحتوى الرئيسي */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            transition: margin-right 0.3s;
+        }
+        .container {
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        .corner-logo {
+            position: fixed;
+            top: 20px;
+            right: 90px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255,215,0,0.8);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s;
+            font-size: 1.5rem;
+        }
+        .corner-logo:hover {
+            transform: scale(1.05);
+            background: #FFD700;
+        }
+
+        /* أيقونة شات بوت */
+        .chatbot-icon {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+        .chatbot-icon:hover {
+            transform: scale(1.1);
+            background: #FFD700;
+        }
+        .chatbot-icon i {
+            font-size: 28px;
+            color: #1a1a2e;
+        }
+
+        /* نافذة الدردشة */
+        .chat-window {
+            position: fixed;
+            bottom: 100px;
+            right: 25px;
+            width: 350px;
+            height: 500px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            display: none;
+            flex-direction: column;
+            z-index: 1001;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .chat-window.open {
+            display: flex;
+        }
+        .chat-header {
+            background: linear-gradient(135deg, rgba(255,215,0,0.9), rgba(255,165,0,0.8));
+            padding: 12px 15px;
+            color: #1a1a2e;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header i {
+            cursor: pointer;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .chat-message {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 18px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .user-message {
+            background: var(--chat-user);
+            color: white;
+            align-self: flex-end;
+            border-bottom-left-radius: 5px;
+        }
+        .ai-message {
+            background: var(--chat-ai);
+            color: white;
+            align-self: flex-start;
+            border-bottom-right-radius: 5px;
+        }
+        .loading-message {
+            background: rgba(255,255,255,0.2);
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            gap: 8px;
+        }
+        .chat-input-area input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.15);
+            color: var(--text-primary);
+            outline: none;
+        }
+        .chat-input-area input::placeholder {
+            color: var(--text-secondary);
+        }
+        .chat-input-area button {
+            background: #FFD700;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chat-input-area button i {
+            color: #1a1a2e;
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 22px;
+            margin-bottom: 18px;
+            border: 1px solid var(--border-color);
+        }
+        .header {
+            text-align: center;
+            margin-top: 40px;
+        }
+        .logo-icon {
+            font-size: 3rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .stat-card {
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #FFD700;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #1a1a2e;
+        }
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .btn-sm {
+            padding: 5px 12px;
+            font-size: 0.8rem;
+        }
+        .btn-wa {
+            background: #25D366;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .homework-item {
+            background: rgba(0,0,0,0.35);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-right: 4px solid #FFD700;
+        }
+        .homework-title {
+            color: #FFD700;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .homework-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            color: #FFD700;
+            display: block;
+            margin-bottom: 8px;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            color: var(--text-primary);
+            font-family: 'Cairo', sans-serif;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 20px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .filter-btn.active-filter {
+            background: #FFD700;
+            color: #1a1a2e;
+        }
+
+        .footer {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            margin-top: 20px;
+            padding: 15px;
+        }
+
+        .progress-bar {
+            background: #333;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-fill {
+            background: #4CAF50;
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s;
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { gap: 8px; }
+            .stat-number { font-size: 1.5rem; }
+            .header { margin-top: 20px; }
+            .corner-logo { right: 80px; width: 40px; height: 40px; font-size: 1.2rem; }
+            .chat-window { width: 90%; right: 5%; left: 5%; bottom: 80px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- شاشة تسجيل الدخول -->
+<div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+        <div style="font-size: 3rem;">📚🎓🤖</div>
+        <h2>مدير المدرسة الذكي</h2>
+        <p>سجل دخول بحساب Google للمتابعة</p>
+        <button class="google-btn" id="googleLoginBtn">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+            تسجيل الدخول بحساب Google
+        </button>
+        <div id="loginError" class="error-msg"></div>
+    </div>
+</div>
+
+<!-- أيقونة شات بوت -->
+<div class="chatbot-icon" id="chatbotIcon" style="display: none;">
+    <i class="fas fa-robot"></i>
+</div>
+
+<!-- نافذة الدردشة -->
+<div class="chat-window" id="chatWindow">
+    <div class="chat-header">
+        <span><i class="fas fa-brain"></i> مساعد الذكاء الاصطناعي</span>
+        <i class="fas fa-times" id="closeChat"></i>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        <div class="chat-message ai-message">🤖 مرحباً! أنا مساعدك الذكي. اسألني عن أي شيء 😊</div>
+    </div>
+    <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="اكتب سؤالك هنا...">
+        <button id="sendChat"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<!-- زر الهمبرغر -->
+<div class="hamburger" id="hamburgerBtn" style="display: none;">
+    <span></span>
+    <span></span>
+    <span></span>
+</div>
+
+<!-- شعار الزاوية -->
+<div class="corner-logo" onclick="goToHome()" title="الرئيسية" style="display: none;">📚</div>
+
+<!-- القائمة الجانبية -->
+<div class="sidebar" id="sidebar">
+    <div class="user-info" id="userInfoDiv" style="display: none;">
+        <img id="userPhoto" src="" alt="">
+        <span id="userName"></span>
+        <button class="logout-btn" onclick="logout()">تسجيل خروج</button>
+    </div>
+    <div class="sidebar-item active" data-tab="home">
+        <i class="fas fa-home"></i>
+        <span>الرئيسية</span>
+    </div>
+    <div class="sidebar-item" data-tab="homeworks">
+        <i class="fas fa-tasks"></i>
+        <span>الواجبات</span>
+    </div>
+    <div class="sidebar-item" data-tab="add">
+        <i class="fas fa-plus-circle"></i>
+        <span>إضافة واجب</span>
+    </div>
+    <div class="sidebar-item" data-tab="notifications">
+        <i class="fas fa-bell"></i>
+        <span>الإشعارات</span>
+    </div>
+    <div class="sidebar-item" data-tab="report">
+        <i class="fas fa-chart-pie"></i>
+        <span>التقارير</span>
+    </div>
+    <div class="sidebar-item" data-tab="settings">
+        <i class="fas fa-user-cog"></i>
+        <span>الإعدادات</span>
+    </div>
+    <div class="sidebar-item" id="themeToggle">
+        <i class="fas fa-moon"></i>
+        <span>وضع الليل</span>
+    </div>
+    <div class="sidebar-footer">
+        <p>© 2025 مدير المدرسة الذكي</p>
+        <p><i class="fas fa-robot"></i> مع مساعد AI</p>
+    </div>
+</div>
+
+<!-- المحتوى الرئيسي -->
+<div class="main-content" id="mainContent" style="display: none;">
+    <div class="container">
+        <div class="card header">
+            <div class="logo-icon">📚🎓✨</div>
+            <h1>مدير المدرسة الذكي</h1>
+            <p>نظام متابعة الواجبات مع مساعد الذكاء الاصطناعي</p>
+        </div>
+
+        <!-- إحصائيات سريعة -->
+        <div class="card">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalHomeworks">0</div>
+                    <div class="stat-label">📚 إجمالي الواجبات</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="pendingHomeworks">0</div>
+                    <div class="stat-label">⏳ قيد التنفيذ</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="completedHomeworks">0</div>
+                    <div class="stat-label">✅ منجز</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="overdueHomeworks">0</div>
+                    <div class="stat-label">⚠️ متأخر</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الصفحة الرئيسية -->
+        <div id="homeTab" class="tab-content active">
+            <div class="card">
+                <h3 style="color:#FFD700;">📖 حكمة اليوم</h3>
+                <div id="quoteText" style="font-size: 1.2rem; margin-bottom: 10px;">"العلم نور، والاجتهاد مفتاح النجاح"</div>
+                <div id="quoteAuthor" style="color: #FFD700;">— حكمة عربية —</div>
+                <button class="btn btn-primary btn-sm" onclick="refreshQuote()" style="margin-top: 10px;">حكمة جديدة</button>
+            </div>
+
+            <div class="card">
+                <h3 style="color:#FFD700;">🌟 نقاطي</h3>
+                <div class="stat-number" id="totalPoints" style="font-size: 2rem;">0</div>
+                <div id="pointsMessage">أكمل واجباتك لتربح النقاط!</div>
+            </div>
+
+            <div class="card">
+                <h3 style="color:#FFD700;">📅 تقرير اليوم</h3>
+                <div>📅 التاريخ: <span id="todayDate"></span></div>
+                <div>✅ منجز اليوم: <span id="todayCompleted">0</span></div>
+                <div>⏳ متبقي: <span id="todayRemaining">0</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="todayProgress"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- صفحة الواجبات -->
+        <div id="homeworksTab" class="tab-content">
+            <div class="card">
+                <div class="filter-buttons">
+                    <button class="filter-btn active-filter" onclick="filterHomeworks('all', this)">الكل</button>
+                    <button class="filter-btn" onclick="filterHomeworks('pending', this)">⏳ قيد التنفيذ</button>
+                    <button class="filter-btn" onclick="filterHomeworks('completed', this)">✅ منجز</button>
+                    <button class="filter-btn" onclick="filterHomeworks('overdue', this)">⚠️ متأخر</button>
+                </div>
+                <div id="homeworksList"></div>
+            </div>
+        </div>
+
+        <!-- صفحة إضافة واجب -->
+        <div id="addTab" class="tab-content">
+            <div class="card">
+                <h3 style="color:#FFD700;">➕ واجب جديد</h3>
+                <form id="homeworkForm">
+                    <div class="form-group">
+                        <label>عنوان الواجب</label>
+                        <input type="text" id="hwTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label>المادة</label>
+                        <select id="hwSubject">
+                            <option>الرياضيات</option>
+                            <option>العلوم</option>
+                            <option>اللغة العربية</option>
+                            <option>اللغة الإنجليزية</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>تاريخ التسليم</label>
+                        <input type="date" id="hwDueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label>وصف (اختياري)</label>
+                        <textarea id="hwDesc" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">➕ إضافة</button>
+                </form>
+                <div id="addResult"></div>
+            </div>
+        </div>
+
+        <!-- صفحة الإشعارات -->
+        <div id="notificationsTab" class="tab-content">
+            <div class="card">
+                <h3 style="color:#FFD700;">🔔 سجل الإشعارات</h3>
+                <button class="btn btn-wa btn-sm" onclick="sendTestNotification()" style="margin-bottom: 10px;">
+                    <i class="fab fa-whatsapp"></i> إرسال إشعار تجريبي
+                </button>
+                <div id="notificationsLog"></div>
+            </div>
+        </div>
+
+        <!-- صفحة التقارير -->
+        <div id="reportTab" class="tab-content">
+            <div class="card">
+                <h3 style="color:#FFD700;">📊 تقرير الأداء</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number" id="reportTotal">0</div>
+                        <div>إجمالي</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="reportPercent">0%</div>
+                        <div>نسبة الإنجاز</div>
+                    </div>
+                </div>
+                <div id="motivationMessage" style="text-align:center; margin-top:15px;"></div>
+            </div>
+        </div>
+
+        <!-- صفحة الإعدادات -->
+        <div id="settingsTab" class="tab-content">
+            <div class="card">
+                <h3 style="color:#FFD700;">⚙️ إعدادات ولي الأمر</h3>
+                <div class="form-group">
+                    <label>اسم ولي الأمر</label>
+                    <input type="text" id="parentName" placeholder="أحمد محمد">
+                </div>
+                <div class="form-group">
+                    <label>رقم واتساب (الأردن)</label>
+                    <input type="tel" id="parentPhone" placeholder="0791234567">
+                    <small style="color: var(--text-secondary);">📱 سيتم إرسال الإشعارات لهذا الرقم</small>
+                </div>
+                <div class="form-group">
+                    <label>اسم الطالب</label>
+                    <input type="text" id="studentName" placeholder="عمر أحمد">
+                </div>
+                <button class="btn btn-primary" onclick="saveParentSettings()">💾 حفظ الإعدادات</button>
+                <div id="settingsResult"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>© 2025 مدير المدرسة الذكي - جميع الحقوق محفوظة</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🔥 إعدادات Firebase - الخاصة بمشروعك
+    const firebaseConfig = {
+        apiKey: "AIzaSyCFk6Pww5zVrWVByXQ5VzAh4-j5-0c8zfQ",
+        authDomain: "planning-with-ai-8c814.firebaseapp.com",
+        projectId: "planning-with-ai-8c814",
+        storageBucket: "planning-with-ai-8c814.firebasestorage.app",
+        messagingSenderId: "557470895684",
+        appId: "1:557470895684:web:fd81533b6c3ff3bf357611"
+    };
+
+    // تهيئة Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    
+    let currentUser = null;
+    let homeworks = [];
+    let parentSettings = {};
+    let notificationsLog = [];
+    let currentFilter = 'all';
+    let totalPoints = 0;
+
+    const quotes = [
+        { text: "العلم نور، والاجتهاد مفتاح النجاح", author: "حكمة عربية" },
+        { text: "لا تؤجل عمل اليوم إلى الغد", author: "بنيامين فرانكلين" },
+        { text: "من جد وجد، ومن زرع حصد", author: "مثل عربي" },
+        { text: "التعليم هو أقوى سلاح يمكنك استخدامه", author: "نيلسون مانديلا" },
+        { text: "النجاح هو جمع اللحظات الصغيرة", author: "حكمة ملهمة" }
+    ];
+
+    // تسجيل الدخول بـ Google
+    document.getElementById('googleLoginBtn').onclick = async () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            const result = await auth.signInWithPopup(provider);
+            currentUser = result.user;
+            document.getElementById('loginOverlay').classList.add('hide');
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('hamburgerBtn').style.display = 'flex';
+            document.querySelector('.corner-logo').style.display = 'flex';
+            document.getElementById('chatbotIcon').style.display = 'flex';
+            document.getElementById('userInfoDiv').style.display = 'flex';
+            document.getElementById('userPhoto').src = currentUser.photoURL || 'https://via.placeholder.com/32';
+            document.getElementById('userName').innerText = currentUser.displayName || currentUser.email;
+            await loadUserData();
+        } catch (error) {
+            document.getElementById('loginError').innerText = 'فشل تسجيل الدخول: ' + error.message;
+        }
+    };
+
+    // تحميل بيانات المستخدم من Firestore
+    async function loadUserData() {
+        if (!currentUser) return;
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        if (userDoc.exists) {
+            const data = userDoc.data();
+            homeworks = data.homeworks || [];
+            parentSettings = data.parentSettings || {};
+            notificationsLog = data.notificationsLog || [];
+            totalPoints = data.totalPoints || 0;
+        } else {
+            homeworks = [];
+            parentSettings = {};
+            notificationsLog = [];
+            totalPoints = 0;
+        }
+        updateAll();
+    }
+
+    // حفظ البيانات في Firestore
+    async function saveToFirestore() {
+        if (!currentUser) return;
+        await db.collection('users').doc(currentUser.uid).set({
+            homeworks: homeworks,
+            parentSettings: parentSettings,
+            notificationsLog: notificationsLog,
+            totalPoints: totalPoints,
+            lastUpdated: new Date().toISOString()
+        });
+    }
+
+    // إرسال إشعار واتساب
+    function sendWhatsApp(phone, message) {
+        let cleanPhone = phone.replace(/[^0-9]/g, '');
+        if (cleanPhone.startsWith('0')) cleanPhone = '962' + cleanPhone.substring(1);
+        if (cleanPhone.startsWith('79')) cleanPhone = '962' + cleanPhone;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+
+    function sendTestNotification() {
+        if (!parentSettings.parentPhone) {
+            document.getElementById('notificationsLog').innerHTML = '<div style="color:#ff6b6b; text-align:center;">❌ الرجاء إدخال رقم ولي الأمر أولاً</div>';
+            setTimeout(() => renderNotificationsLog(), 2000);
+            return;
+        }
+        let message = `🔔 *إشعار تجريبي من مدير المدرسة الذكي* 🔔\n\n`;
+        message += `👨‍👩‍👧 ولي الأمر: ${parentSettings.parentName || 'غير محدد'}\n`;
+        message += `👨‍🎓 الطالب: ${parentSettings.studentName || 'غير محدد'}\n\n`;
+        message += `✨ هذا إشعار تجريبي، النظام يعمل بشكل صحيح!`;
+        sendWhatsApp(parentSettings.parentPhone, message);
+        notificationsLog.unshift({ type: '📱 تجريبي', date: new Date().toLocaleString('ar-SA') });
+        saveToFirestore();
+        renderNotificationsLog();
+    }
+
+    // تحديث الإحصائيات
+    function updateStats() {
+        document.getElementById('totalHomeworks').innerText = homeworks.length;
+        document.getElementById('pendingHomeworks').innerText = homeworks.filter(h => h.status !== 'completed').length;
+        document.getElementById('completedHomeworks').innerText = homeworks.filter(h => h.status === 'completed').length;
+        document.getElementById('overdueHomeworks').innerText = homeworks.filter(h => h.status !== 'completed' && new Date(h.dueDate) < new Date()).length;
+        document.getElementById('totalPoints').innerText = totalPoints;
+        document.getElementById('reportTotal').innerText = homeworks.length;
+        let percent = homeworks.length ? Math.round((homeworks.filter(h => h.status === 'completed').length / homeworks.length) * 100) : 0;
+        document.getElementById('reportPercent').innerText = percent + '%';
+        let msg = percent >= 70 ? '🌟 ممتاز! استمر!' : percent >= 40 ? '👍 جيد، حاول إنجاز المزيد' : '💪 ابدأ الآن! كل واجب ينجز يقربك للنجاح';
+        document.getElementById('motivationMessage').innerHTML = msg;
+        
+        const today = new Date().toISOString().split('T')[0];
+        const todayHw = homeworks.filter(h => h.dueDate === today);
+        const todayComp = todayHw.filter(h => h.status === 'completed').length;
+        document.getElementById('todayDate').innerText = new Date().toLocaleDateString('ar-SA');
+        document.getElementById('todayCompleted').innerText = todayComp;
+        document.getElementById('todayRemaining').innerText = todayHw.length - todayComp;
+        let progressPercent = todayHw.length ? (todayComp / todayHw.length) * 100 : 0;
+        document.getElementById('todayProgress').style.width = progressPercent + '%';
+        
+        let pointsMsg = totalPoints >= 100 ? '🏆 بطل! أنت في القمة!' : totalPoints >= 50 ? '⭐ ممتاز! استمر' : '🌟 أكمل واجباتك لتربح النقاط';
+        document.getElementById('pointsMessage').innerHTML = pointsMsg;
+    }
+
+    function updateAll() { updateStats(); renderHomeworks(); renderNotificationsLog(); }
+
+    function renderHomeworks() {
+        const container = document.getElementById('homeworksList');
+        if (!container) return;
+        let filtered = [...homeworks];
+        if (currentFilter === 'pending') filtered = filtered.filter(h => h.status !== 'completed');
+        else if (currentFilter === 'completed') filtered = filtered.filter(h => h.status === 'completed');
+        else if (currentFilter === 'overdue') filtered = filtered.filter(h => h.status !== 'completed' && new Date(h.dueDate) < new Date());
+        if (!filtered.length) { container.innerHTML = '<div style="text-align:center;">📭 لا واجبات</div>'; return; }
+        container.innerHTML = filtered.map((hw, idx) => {
+            let index = homeworks.findIndex(h => h === hw);
+            let deadline = new Date(hw.dueDate) < new Date() ? '⚠️ منتهي' : `📅 ${hw.dueDate}`;
+            return `<div class="homework-item"><div class="homework-title">📚 ${hw.title}</div><div>${deadline} | 📖 ${hw.subject}</div><div style="color:var(--text-secondary);">${hw.description || ''}</div>${hw.status === 'completed' ? '<div>✅ منجز</div>' : ''}<div class="homework-actions">${hw.status !== 'completed' ? `<button class="btn btn-success btn-sm" onclick="markCompleted(${index})">✅ إنجاز</button>` : ''}<button class="btn btn-danger btn-sm" onclick="deleteHomework(${index})">🗑️ حذف</button></div></div>`;
+        }).join('');
+    }
+
+    function renderNotificationsLog() {
+        const container = document.getElementById('notificationsLog');
+        if (!container) return;
+        if (!notificationsLog.length) { container.innerHTML = '<div style="text-align:center;">📭 لا إشعارات</div>'; return; }
+        container.innerHTML = notificationsLog.slice(0, 10).map(n => `<div style="background:rgba(0,0,0,0.3); border-radius:15px; padding:10px; margin-bottom:8px;"><div style="color:#FFD700;">${n.type}</div><div>📚 ${n.homework || ''}</div><div>📅 ${n.date}</div></div>`).join('');
+    }
+
+    function markCompleted(i) {
+        if (homeworks[i].status !== 'completed') {
+            homeworks[i].status = 'completed';
+            let points = new Date(homeworks[i].dueDate) < new Date() ? 5 : 10;
+            homeworks[i].points = points;
+            totalPoints += points;
+            notificationsLog.unshift({ type: '✅ إنجاز', homework: homeworks[i].title, date: new Date().toLocaleString() });
+            saveToFirestore();
+            updateAll();
+            if (parentSettings.parentPhone) {
+                let msg = `✅ تم إنجاز الواجب: ${homeworks[i].title}\n🎯 الطالب: ${parentSettings.studentName}\n🌟 حصل على ${points} نقاط`;
+                sendWhatsApp(parentSettings.parentPhone, msg);
+            }
+        }
+    }
+
+    function deleteHomework(i) {
+        if (confirm('هل أنت متأكد؟')) {
+            if (homeworks[i].status === 'completed') totalPoints -= homeworks[i].points;
+            homeworks.splice(i, 1);
+            saveToFirestore();
+            updateAll();
+        }
+    }
+
+    function filterHomeworks(filter, btn) {
+        currentFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
+        btn.classList.add('active-filter');
+        renderHomeworks();
+    }
+
+    function saveParentSettings() {
+        parentSettings = {
+            parentName: document.getElementById('parentName').value,
+            parentPhone: document.getElementById('parentPhone').value,
+            studentName: document.getElementById('studentName').value
+        };
+        saveToFirestore();
+        document.getElementById('settingsResult').innerHTML = '<div style="color:#4CAF50;">✅ تم الحفظ</div>';
+        setTimeout(() => document.getElementById('settingsResult').innerHTML = '', 2000);
+    }
+
+    function refreshQuote() {
+        let q = quotes[Math.floor(Math.random() * quotes.length)];
+        document.getElementById('quoteText').innerHTML = `"${q.text}"`;
+        document.getElementById('quoteAuthor').innerHTML = `— ${q.author} —`;
+    }
+
+    function showTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.getElementById(`${tabName}Tab`).classList.add('active');
+        document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+        let activeItem = document.querySelector(`.sidebar-item[data-tab="${tabName}"]`);
+        if (activeItem) activeItem.classList.add('active');
+        if (tabName === 'report') updateStats();
+    }
+
+    function goToHome() { showTab('home'); }
+
+    function logout() {
+        auth.signOut();
+        location.reload();
+    }
+
+    // ============= مساعد الذكاء الاصطناعي =============
+    const chatbotIcon = document.getElementById('chatbotIcon');
+    const chatWindow = document.getElementById('chatWindow');
+    const closeChat = document.getElementById('closeChat');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendChat = document.getElementById('sendChat');
+
+    chatbotIcon.onclick = () => chatWindow.classList.toggle('open');
+    closeChat.onclick = () => chatWindow.classList.remove('open');
+
+    function addChatMessage(text, isUser) {
+        const div = document.createElement('div');
+        div.className = `chat-message ${isUser ? 'user-message' : 'ai-message'}`;
+        div.innerText = text;
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+        addChatMessage(message, true);
+        chatInput.value = '';
+        
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'chat-message ai-message loading-message';
+        loadingDiv.innerText = '🤔 جاري التفكير...';
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            });
+            const data = await response.json();
+            loadingDiv.remove();
+            if (data.reply) {
+                addChatMessage(data.reply, false);
+            } else {
+                addChatMessage('عذراً، حدث خطأ. يرجى المحاولة مرة أخرى.', false);
+            }
+        } catch (error) {
+            loadingDiv.remove();
+            addChatMessage('❌ لا يمكن الاتصال بالخادم. تأكد من تشغيل الخادم (node server.js)', false);
+        }
+    }
+
+    sendChat.onclick = sendChatMessage;
+    chatInput.onkeypress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
+
+    // الهمبرغر
+    const hamburger = document.getElementById('hamburgerBtn');
+    const sidebar = document.getElementById('sidebar');
+    hamburger.onclick = () => {
+        sidebar.classList.toggle('open');
+        hamburger.classList.toggle('active');
+    };
+    document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
+        item.onclick = () => { showTab(item.getAttribute('data-tab')); if (window.innerWidth <= 768) { sidebar.classList.remove('open'); hamburger.classList.remove('active'); } };
+    });
+    document.getElementById('themeToggle').onclick = () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode'));
+    };
+    if (localStorage.getItem('theme') === 'true') document.body.classList.add('dark-mode');
+
+    // إضافة واجب
+    document.getElementById('homeworkForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        homeworks.push({
+            title: document.getElementById('hwTitle').value,
+            description: document.getElementById('hwDesc').value,
+            subject: document.getElementById('hwSubject').value,
+            dueDate: document.getElementById('hwDueDate').value,
+            status: 'pending',
+            points: 0
+        });
+        saveToFirestore();
+        updateAll();
+        document.getElementById('homeworkForm').reset();
+        document.getElementById('addResult').innerHTML = '<div style="color:#4CAF50;">✅ تم الإضافة</div>';
+        setTimeout(() => document.getElementById('addResult').innerHTML = '', 2000);
+        showTab('homeworks');
+    });
+
+    // تحميل الإعدادات المحفوظة
+    window.onload = () => {
+        refreshQuote();
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginOverlay').classList.add('hide');
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('hamburgerBtn').style.display = 'flex';
+                document.querySelector('.corner-logo').style.display = 'flex';
+                document.getElementById('chatbotIcon').style.display = 'flex';
+                document.getElementById('userInfoDiv').style.display = 'flex';
+                document.getElementById('userPhoto').src = currentUser.photoURL || 'https://via.placeholder.com/32';
+                document.getElementById('userName').innerText = currentUser.displayName || currentUser.email;
+                await loadUserData();
+                if (parentSettings.parentName) document.getElementById('parentName').value = parentSettings.parentName;
+                if (parentSettings.parentPhone) document.getElementById('parentPhone').value = parentSettings.parentPhone;
+                if (parentSettings.studentName) document.getElementById('studentName').value = parentSettings.studentName;
+            }
+        });
+    };
+</script>
+</body>
+</html>
